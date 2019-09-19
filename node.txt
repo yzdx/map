@@ -1,0 +1,66 @@
+Map实现线程安全的3种方式
+
+方式1.  使用Hashtable
+
+        其实现原理是在增删改查的方法上使用了synchronized锁机制，在多线程环境下，无论是读数据，还是修改数据，在同一时刻只能有一个线程在执行synchronize方法，因为是对整个表进行锁定。所以线程越多，对该map的竞争越激烈，效率越低，不推荐使用。
+
+方式2.  使用Collections.synchronizedMap(new Hashtable())
+
+        其实现原理是使用工具类里面的静态方法，把传入进来的Hashtable包装成同步的，即在增删改查的方法上增加了synchronized所机制，其实现方式与Hashtable差不多，效率也差不多，不推荐使用。
+
+Map map = Collections.synchronizedMap(new Hashtable());
+以下是JDK源码
+
+public static <K,V> Map<K,V> synchronizedMap(Map<K,V> m) {
+        return new SynchronizedMap<>(m);
+}
+private static class SynchronizedMap<K,V>
+        implements Map<K,V>, Serializable {
+        private static final long serialVersionUID = 1978198479659022715L;
+
+        private final Map<K,V> m;     // Backing Map
+        final Object      mutex;        // Object on which to synchronize
+
+        SynchronizedMap(Map<K,V> m) {
+            this.m = Objects.requireNonNull(m);
+            mutex = this;
+        }
+
+        SynchronizedMap(Map<K,V> m, Object mutex) {
+            this.m = m;
+            this.mutex = mutex;
+        }
+
+        public int size() {
+            synchronized (mutex) {return m.size();}
+        }
+        public boolean isEmpty() {
+            synchronized (mutex) {return m.isEmpty();}
+        }
+        public boolean containsKey(Object key) {
+            synchronized (mutex) {return m.containsKey(key);}
+        }
+        public boolean containsValue(Object value) {
+            synchronized (mutex) {return m.containsValue(value);}
+        }
+        public V get(Object key) {
+            synchronized (mutex) {return m.get(key);}
+        }
+
+        public V put(K key, V value) {
+            synchronized (mutex) {return m.put(key, value);}
+        }
+        public V remove(Object key) {
+            synchronized (mutex) {return m.remove(key);}
+        }
+        public void putAll(Map<? extends K, ? extends V> map) {
+            synchronized (mutex) {m.putAll(map);}
+        }
+        public void clear() {
+            synchronized (mutex) {m.clear();}
+        }
+        ......
+    }
+方式3.  使用ConcurrentHashMap
+
+        其实现原理是Hashtable是对整个表进行加锁，而ConcurrentHashMap是把表进行分段，初始情况下分成16段，每一段都有一把锁，当多个线程访问不同的段时，因为获取到的锁是不同的，所以可以并行的访问。效率比Hashtable高多了，推荐使用。
